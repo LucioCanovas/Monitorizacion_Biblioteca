@@ -2,17 +2,85 @@ import os
 import cv2
 import time
 import pika
+import cProfile
+import pstats
 import ping3
 import logging
 import sqlite3
 import datetime
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 
 # Cargar variables de entorno desde el archivo .env
 load_dotenv()
+
+def limite_de_tiempo(codigo_bib):
+    nombre_base_de_datos = os.getenv("path_bbdd")
+    conn = sqlite3.connect(nombre_base_de_datos)
+    cursor = conn.cursor()
+
+    # Obtener la fecha actual en formato YYYY-MM-DD
+    fecha_actual = datetime.today().strftime('%Y-%m-%d')
+    
+    # Código biblioteca
+
+    try:
+        # Consultar si existe la fecha de ayer en la base de datos
+        cursor.execute("""
+            SELECT hora_final
+            FROM horarios
+            WHERE fecha = ? AND codigo_bib = ?
+        """, (fecha_actual, codigo_bib))
+
+        resultado = cursor.fetchone()
+
+        if resultado:
+            # Si la fecha de ayer existe, devolver las horas de inicio y fin
+            hora_fin = resultado
+        else:
+            # Si la fecha de ayer no existe, seleccionar una fecha base según el día de la semana
+            fecha_entrada_base = '2000-01-01' if datetime.strptime(fecha_actual, '%Y-%m-%d').weekday() < 5 else '1999-01-01'
+            
+            # Consultar las horas de inicio y fin para la fecha base y código de biblioteca
+            cursor.execute("""
+                SELECT hora_final
+                FROM horarios
+                WHERE fecha = ? AND codigo_bib = ?
+            """, (fecha_entrada_base, codigo_bib))
+
+            resultado = cursor.fetchone()
+
+            if resultado:
+                # Si se encuentra en la fecha base, devolver las horas de inicio y fin
+                hora_fin = resultado
+            else:
+                # Si no hay información para la fecha base, asignar valores predeterminados
+                hora_fin = '21:30:00'
+
+            
+
+    # Convertir la hora final obtenida de la base de datos a objeto de tiempo
+        hora_fin_obj = datetime.strptime(hora_fin, '%H:%M:%S')
+
+        # Obtener la hora actual
+        hora_actual_str = datetime.now().strftime('%H:%M:%S')
+        hora_actual_obj = datetime.strptime(hora_actual_str, '%H:%M:%S')
+
+        # Determinar si la hora actual es posterior a la hora de finalización
+        estado = hora_actual_obj > hora_fin_obj
+
+    except sqlite3.Error as e:
+        logging.error('Error en BBDD al obtener el horario')
+        return None, None
+
+    finally:
+        # Cerrar la conexión a la base de datos
+        conn.close()
+
+    return estado
+
 
 def obtener_secuencia_del_dia(codigo_bib):
 
@@ -201,8 +269,7 @@ secuencia_id = obtener_secuencia_del_dia(os.getenv("Codigo_bib"))
 deteccion_anterior = False 
 
 # Variable para controlar si se guarda la imagen actual
-estado_grabacion_actual = False  
-
+estado_grabacion_actual = False
 
 # Variables del sustractor CNT
 area = int(os.getenv("area"))
@@ -219,62 +286,75 @@ log_file_path = os.getenv("path_logging")
 logging.basicConfig(filename=log_file_path, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logging.getLogger('pika').setLevel(logging.CRITICAL)
 
+with cProfile.Profile() as profile:
+
 # =========================== Main Loop ========================== #
-channel = crear_cola_mensajes()
+    channel = crear_cola_mensajes()
 
-while True:
-        
-    #Iniciamos captura y analisis de frames 
-    if conexion(os.getenv("Ip_camara")):
+    while True:
+        conexion_camara = conexion(os.getenv("Ip_camara"))
+        if limite_de_tiempo(os.getenv("Codigo_bib")):
+            enviar_mensaje_cola(0)
+            break   
 
-        deteccion_anterior = False  
-        estado_grabacion_actual = False  
-        frame_id = 0
-        cap = cv2.VideoCapture(os.getenv("RTSP_URL"))
+        #Iniciamos captura y analisis de frames 
+        if conexion_camara:
 
-        logging.info('Conexion con la camara')
-        estado_camara_sqlite(os.getenv("Codigo_bib"), True)
-        time.sleep(1)
+            deteccion_anterior = False  
+            estado_grabacion_actual = False  
+            frame_id = 0
+            cap = cv2.VideoCapture(os.getenv("RTSP_URL"))
 
-        while cap.isOpened():
+            logging.info('Conexion con la camara')
+            estado_camara_sqlite(os.getenv("Codigo_bib"), True)
+            time.sleep(1)
 
-            status, frame = cap.read()
+            while cap.isOpened():
 
-            if status:
-                # Realiza la detección de personas
-                deteccion = clasificadorPersona(frame, area, k)
+                status, frame = cap.read()
 
-                estado_grabacion_anterior  = estado_grabacion_actual
+                if status:
+                    # Realiza la detección de personas
+                    deteccion = clasificadorPersona(frame, area, k)
 
-                # Determina si se debe continuar grabando las imagenes
-                estado_grabacion_actual = continuar_grabacion(deteccion, 
-                                                            deteccion_anterior, 
-                                                            estado_grabacion_actual)
+                    estado_grabacion_anterior  = estado_grabacion_actual
 
-                # Si comienza una nueva secuencia o si acaba una secuencia
-                if not estado_grabacion_anterior and estado_grabacion_actual:
-                    secuencia_id += 1
-                    frame_id = 0
-                elif estado_grabacion_anterior and not estado_grabacion_actual:
-                    enviar_mensaje_cola(secuencia_id)
+                    # Determina si se debe continuar grabando las imagenes
+                    estado_grabacion_actual = continuar_grabacion(deteccion, 
+                                                                deteccion_anterior, 
+                                                                estado_grabacion_actual)
 
-                # Actualiza la detección anterior
-                deteccion_anterior = deteccion
+                    # Si comienza una nueva secuencia o si acaba una secuencia
+                    if not estado_grabacion_anterior and estado_grabacion_actual:
+                        secuencia_id += 1
+                        frame_id = 0
+                    elif estado_grabacion_anterior and not estado_grabacion_actual:
+                        enviar_mensaje_cola(secuencia_id)
 
-                if estado_grabacion_actual:
-                    nombre_imagen = 'sc{:05d}_f_{:05d}.jpg'.format(secuencia_id, 
-                                                                    frame_id)
-                        
-                    cv2.imwrite(path_imagenes  + '/' + nombre_imagen, frame)
+                    # Actualiza la detección anterior
+                    deteccion_anterior = deteccion
 
-                frame_id += 1
+                    if estado_grabacion_actual:
+                        nombre_imagen = 'sc{:05d}_f_{:05d}.jpg'.format(secuencia_id, 
+                                                                        frame_id)
+                            
+                        cv2.imwrite(path_imagenes  + '/' + nombre_imagen, frame)
 
-            #Error en la conexion de la cámara   
-            else:
-                logging.info(f'Error en el frame')
-                break
-            
-        cap.release()
-        logging.warning('Desconexion con la camara')
-        estado_camara_sqlite(os.getenv("Codigo_bib"), False)
+                    frame_id += 1
+
+                #Error en la conexion de la cámara   
+                else:
+                    logging.info(f'Error en el frame')
+                    break
+                
+            cap.release()
+            logging.warning('Desconexion con la camara')
+            estado_camara_sqlite(os.getenv("Codigo_bib"), False)
+    
+
+    results = pstats.Stats(profile)
+    results.sort_stats(pstats.SortKey.TIME)
+    logging.info('********** Stats de la cámara ANT **********')
+    logging.info(f'{results.print_stats()}')
+    results.dump_stats("profile_camara_ant.prof")
 
