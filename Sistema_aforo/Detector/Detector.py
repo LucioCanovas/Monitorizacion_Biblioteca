@@ -5,6 +5,8 @@ import glob
 import time
 import math
 import torch
+import cProfile
+import pstats
 import shutil
 import random
 import sqlite3
@@ -25,6 +27,7 @@ def descifrar_mensaje(body):
     secuencia_id = int(mensaje.split(",")[1])
     hora_inicio = str(mensaje.split(",")[2])
     logging.info(f'Mensaje recibido y descifrado: {biblioteca_id}, {secuencia_id}, {hora_inicio}')
+ 
     return biblioteca_id, secuencia_id, hora_inicio
 
 
@@ -299,9 +302,13 @@ def crear_cola_mensajes(ip_broker):
 
 
 def callback(ch, method, properties, body):
-    global array_aforo, connection, channel
+    global array_aforo, connection, channel, final
     try:
         biblioteca_id, secuencia_id, hora_inicio = descifrar_mensaje(body)
+        if secuencia_id == 0:
+            final = True
+            channel.close()
+            connection.close()
             
         ultima_sec_analizada = array_secuencias[biblioteca_id]
         
@@ -344,7 +351,7 @@ def callback(ch, method, properties, body):
 
 
 def consume_messages():
-    global connection, channel
+    global connection, channel, final
 
     while True:
         try:
@@ -359,15 +366,19 @@ def consume_messages():
                 time.sleep(1)
 
             # Volvemos a crear la cola RabbitMQ
-            channel, connection = crear_cola_mensajes(ip_broker)
-            channel.basic_consume(queue='BibliotecaUPCT',
-                                  on_message_callback=callback,
-                                  auto_ack=True)
+            if not final:
+                channel, connection = crear_cola_mensajes(ip_broker)
+                channel.basic_consume(queue='BibliotecaUPCT',
+                                      on_message_callback=callback,
+                                      auto_ack=True)
+            else:
+                break
 
 
 
 # Variables cola mq-rabbit
 ip_broker = os.getenv("Ip_broker")
+final = False
 modelo_deteccion = torch.hub.load('ultralytics/yolov5','custom',path='/app/Compartida/Detector/modelo_v5.pt')
 
 # Configuración del registro para escribir en un archivo
@@ -381,14 +392,20 @@ diccionario_biblioteca = {0: 'ANT', 1: 'CIM', 2: 'ALF'}
 array_secuencias, array_aforo = obtener_aforo_secuencias()
 logging.debug(f'Secuencias: {array_secuencias}')
 
+with cProfile.Profile() as profile:
 
+    channel, connection = crear_cola_mensajes(ip_broker)
+    channel.basic_consume(queue='BibliotecaUPCT',
+                        on_message_callback=callback,
+                        auto_ack=True)
 
-channel, connection = crear_cola_mensajes(ip_broker)
-channel.basic_consume(queue='BibliotecaUPCT',
-                      on_message_callback=callback,
-                      auto_ack=True)
+    # Start consuming messages
+    consume_messages()
 
-# Start consuming messages
-consume_messages()
+results = pstats.Stats(profile)
+results.sort_stats(pstats.SortKey.TIME)
+logging.info('********** Stats del detector **********')
+logging.info(f'{results.print_stats()}')
+results.dump_stats("profile_detector.prof")
 
     
