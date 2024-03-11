@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Gestión de Horarios</title>
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="{{ url_for('descargar') }}">Descarga de Archivos</a></li>
+            <li><a href="{{ url_for('horarios') }}">Horarios de Programas</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <h1>Añadir Horarios</h1>
+
+        <form method="post" action="{{ url_for('agregar_horario', codigo_bib=codigo_bib) }}">
+            <label for="select_codigo_bib">Selecciona un código_bib:</label>
+            <select id="select_codigo_bib" name="codigo_bib">
+                <option value="ANT">ANT</option>
+                <option value="CIM">CIM</option>
+                <option value="ALF">ALF</option>
+            </select>
+            <label for="fecha_nueva">Fecha:</label>
+            <input type="date" id="fecha_nueva" name="fecha_nueva" required>
+            <br>
+            <label for="hora_inicio_nueva">Hora de Inicio:</label>
+            <input type="time" id="hora_inicio_nueva" name="hora_inicio_nueva" required>
+            <br>
+            <label for="hora_final_nueva">Hora Final:</label>
+            <input type="time" id="hora_final_nueva" name="hora_final_nueva" required>
+            <br>
+            <label for="opcion">Opcion:</label>
+            <select id="opcion" name="opcion">
+                <option value="Añadir">Añadir</option>
+                <option value="Eliminar">Eliminar</option>
+            </select>
+            <input type="submit" value="Agregar Horario">
+        </form>
+
+        <!-- Mostrar las fechas asociadas a la biblioteca seleccionada -->
+        <div class="container">
+            <h1>Horarios - Biblioteca: {{ codigo_bib }}</h1>
+            <!-- Formulario para seleccionar código_bib y mostrar horarios -->
+        <form method="post" action="{{ url_for('horarios') }}">
+            <label for="select_codigo_bib">Selecciona un código_bib:</label>
+            <select id="select_codigo_bib" name="codigo_bib">
+                <option value="ANT">ANT</option>
+                <option value="CIM">CIM</option>
+                <option value="ALF">ALF</option>
+            </select>
+            <input type="submit" value="Mostrar Horarios">
+        </form>
+            
+            <!-- Verifica si hay horarios para mostrar -->
+            {% if horarios %}
+                <ul>
+                    {% for horario in horarios %}
+                        <li>{{ horario[0] }} - Inicio: {{ horario[1] }}, Final: {{ horario[2] }}</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>No hay horarios disponibles.</p>
+            {% endif %}
+        </div>
+</body>
+</html>

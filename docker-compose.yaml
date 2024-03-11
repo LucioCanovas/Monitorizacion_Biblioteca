@@ -1,0 +1,32 @@
+version: '3'
+
+services:
+  rabbitmq:
+    image: "rabbitmq:3.11.11-management"
+    networks:
+      - mi-red
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    container_name: rabbit-server
+
+  camara_ant:
+    build: ./Clasificador
+    networks:
+      - mi-red
+    ports:
+      - "554:554"
+    container_name: camara_ant
+    volumes:
+      - /home/admincamaras/CamarasBiblioteca/Compartida:/app/Compartida
+
+  consumidor:
+    build: ./consumidor
+    networks:
+      - mi-red
+    container_name: consumidor
+    volumes:
+      - C:\Users\Usuario\Desktop\TFG\Yolov8\Base_datos:/app/BBDD  # Ajusta las rutas según tus necesidades
+
+networks:
+  mi-red:

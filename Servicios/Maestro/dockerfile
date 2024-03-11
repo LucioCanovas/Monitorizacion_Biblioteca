@@ -1,0 +1,19 @@
+# Usa una imagen de Python 3.11
+FROM python:3.11-slim
+
+# Establece el directorio de trabajo en /app
+WORKDIR /app
+
+# Copia los archivos de la carpeta padre al directorio /app
+COPY . /app
+
+# Instala los requisitos desde el archivo requirements.txt
+RUN pip install docker
+RUN pip install pyTelegramBotAPI
+RUN pip install schedule
+
+# Nombre del contenedor
+LABEL name="Maestro"
+
+# Comando de inicio
+CMD ["python", "maestro.py"]

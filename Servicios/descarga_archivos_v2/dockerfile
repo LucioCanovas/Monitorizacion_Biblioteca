@@ -1,0 +1,33 @@
+# Usa una imagen de Python 3.11
+FROM python:3.11
+
+# Establece el directorio de trabajo en /app
+WORKDIR /app
+
+# Copia los archivos de la carpeta padre al directorio /app
+COPY . /app
+
+# Crea un volumen que mapea la ruta local /home/admincamaras/CamarasBiblioteca/Compartida
+# a /app/Compartida en el contenedor
+VOLUME /home/admincamaras/CamarasBiblioteca/Compartida:/app/Compartida
+
+# Limita la CPU a 0.15 (15% de una CPU)
+# Si tienes más de una CPU disponible en tu sistema, esto limitará el contenedor a usar la mitad de un núcleo.
+# Si tienes 4 CPUs, 0.5 significa 15% de un núcleo.
+ENV CPU_LIMIT 0.15
+
+# Instala los requisitos desde el archivo requirements.txt
+RUN pip install python-dotenv
+RUN pip install Flask
+RUN pip install bcrypt==3.2.0
+RUN pip install passlib
+
+
+# Nombre del contenedor
+LABEL name="descarga_archivos"
+
+# Indica que el contenedor escucha en el puerto
+EXPOSE 5000
+
+# Comando de inicio
+CMD ["python", "app.py"]

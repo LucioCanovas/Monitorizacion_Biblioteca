@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Informes</title>
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="{{ url_for('login') }}">Login</a></li>
+            <li><a href="{{ url_for('descargar') }}">Informes</a></li>
+            <li><a href="{{ url_for('horarios') }}">Horarios</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <h1>Informes - Biblioteca: {{ codigo_bib }} - Intervalo: {{ intervalo }}</h1>
+        
+        <form method="post" action="{{ url_for('descargar') }}">
+            <label for="codigo_bib">Selecciona un código_bib:</label>
+            <select name="codigo_bib" id="codigo_bib" required>
+                <option value="ANT" {% if codigo_bib == 'ANT' %} selected {% endif %}>ANT</option>
+                <option value="CIM" {% if codigo_bib == 'CIM' %} selected {% endif %}>CIM</option>
+                <option value="ALF" {% if codigo_bib == 'ALF' %} selected {% endif %}>ALF</option>
+            </select>
+            <label for="intervalo">Selecciona un intervalo de tiempo:</label>
+            <select name="intervalo" id="intervalo" required>
+                <option value="30min" {% if intervalo == '30min' %} selected {% endif %}>30 minutos</option>
+                <option value="1min" {% if intervalo == '1min' %} selected {% endif %}>1 minuto</option>
+            </select>
+            <input type="submit" value="Mostrar archivos">
+        </form>
+
+       <!-- Mostrar archivos de la página actual -->
+        <ul>
+            {% for archivo in archivos %}
+                <li>
+                    <div style="display: inline-block;">
+                        <a href="{{ url_for('descargar_archivo', codigo_bib=codigo_bib, intervalo=intervalo, nombre=archivo) }}" download="{{ archivo }}">{{ archivo }}</a>
+                        {% if rol %}
+                            {% if rol == 'admin' %}
+                            <form id="eliminar_form_{{ archivo }}" method="post" action="{{ url_for('eliminar_archivo', codigo_bib=codigo_bib, intervalo=intervalo, nombre=archivo) }}" style="display: inline-block;">
+                                <!-- Agrega un botón de eliminar y un evento onclick para mostrar un mensaje de confirmación -->
+                                <button type="button" onclick="confirmarEliminacion('{{ archivo }}')">Eliminar</button>
+                            </form>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+
+        <!-- Script de JavaScript para mostrar mensaje de confirmación -->
+        <script>
+            function confirmarEliminacion(archivo) {
+                var confirmacion = confirm("¿Estás seguro de que deseas eliminar el archivo '" + archivo + "'?");
+                if (confirmacion) {
+                    // Si el usuario confirma, envía el formulario
+                    document.getElementById("eliminar_form_" + archivo).submit();
+                } else {
+                    // Si el usuario cancela, no hace nada
+                    return false;
+                }
+            }
+        </script>
+
+        <!-- Mostrar enlaces de paginación -->
+        <div class="pagination">
+            {% if archivos %}
+                {% for pagina in range(1, num_paginas + 1) %}
+                    {% if pagina == pagina_actual %}
+                        <a href="{{ url_for('mostrar_archivos', codigo_bib=codigo_bib, intervalo=intervalo, pagina=pagina, rol=rol) }}" class="current">{{ pagina }}</a>
+                    {% else %}
+                        <a href="{{ url_for('mostrar_archivos', codigo_bib=codigo_bib, intervalo=intervalo, pagina=pagina, rol=rol) }}">{{ pagina }}</a>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        </div>       
+    </div>
+</body>
+</html>
+
