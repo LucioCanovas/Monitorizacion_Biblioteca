@@ -28,7 +28,7 @@ def estado_servidor():
     conn.close()
     
 
-def comprobar_estado(estado_bib, bot, user_id):
+def comprobar_estado(estado_bib, detector_estado, bot, user_id):
     client = docker.from_env()
     contador_bib_cerrado = 0
     
@@ -40,45 +40,40 @@ def comprobar_estado(estado_bib, bot, user_id):
             nombre_contenedor_bib = info_bib[1]
             contenedor_bib = client.containers.get(nombre_contenedor_bib)
             horario = check_time_in_range(biblioteca)  # Supongo que tienes definida esta función
-            logging.info(f'Argumentos: {estado_bib}, horario: {horario}')
+            logging.debug(f'Argumentos: {estado_bib}, horario: {horario}')
 
-            if estado == 'Cerrado' and not horario:
-                contador_bib_cerrado += 1
-                logging.info(f'Primero: estado Cerrado, horario False')
-                if contenedor_bib.status == "running":
-                    contenedor_bib.stop()
-
-            elif estado == 'Cerrado' and horario:
-                logging.info(f'Segundo: estado Cerrado, horario True')
-                #bot.send_message(user_id, message=f'Contenedor {nombre_contenedor_bib} iniciado')
-                if contenedor_bib.status != "running":
-                    contenedor_bib.start()
-                    estado_bib[biblioteca] = ('Abierto', nombre_contenedor_bib)
+            if estado == 'Cerrado' and horario:
+                bot.send_message(user_id, f'Contenedor {nombre_contenedor_bib} iniciado')
+                detector_estado = True
                 if contenedor_detector.status != "running":
                     contenedor_detector.start()
+                    logging.info(f'El contenedor detector, esta iniciado')
+                    time.sleep(10)
 
-            elif estado == 'Abierto' and not horario:
-                logging.info(f'Tercero: estado Abierto, horario False')
-                contador_bib_cerrado += 1
-                #bot.send_message(user_id, message=f'Contenedor {nombre_contenedor_bib} cerrado')
+                if contenedor_bib.status != "running":
+                    contenedor_bib.start()
+                    logging.info(f'El contenedor {nombre_contenedor_bib}, esta iniciado')
+                    estado = 'Abierto'
+                    estado_bib[biblioteca] = (estado, nombre_contenedor_bib)
+
+            if estado == 'Abierto' and not horario:
                 if contenedor_bib.status == "running":
-                    contenedor_bib.stop()
+                    logging.debug(f'El contenedor {nombre_contenedor_bib}, sigue en funcionamiento, pese a no estar en el horario')
+                else:
                     estado_bib[biblioteca] = ('Cerrado', nombre_contenedor_bib)
+                    logging.info(f'El contenedor {nombre_contenedor_bib}, esta apagado y cerrado')
+                    bot.send_message(user_id, f'Contenedor {nombre_contenedor_bib} apagado')
 
-            elif estado == 'Abierto' and horario:
-                logging.info(f'Cuarto: estado Abierto, horario True')
-                if contenedor_bib.status != "running":
-                    contenedor_bib.start()
-                if contenedor_detector.status != "running":
-                    contenedor_detector.start()
+            if estado == 'Cerrado': contador_bib_cerrado += 1
 
-        if contador_bib_cerrado == len(estado_bib) and contenedor_detector.status == "running":
-            contenedor_detector.stop()
+
+        if contador_bib_cerrado == len(estado_bib) and contenedor_detector.status != "running" and detector_estado:
+            detector_estado = False
             contenedor_informes = client.containers.get('informes')
             contenedor_informes.start()
-            #bot.send_message(user_id, message=f'Contenedor {contenedor_detector.name} cerrado, iniciando la creación de informe')
+            bot.send_message(user_id,f'Contenedor {contenedor_detector.name} cerrado, iniciando la creación de informe')
 
-        return estado_bib
+        return estado_bib, detector_estado
 
     except Exception as e:
         # Manejar cualquier error de conexión con Docker u otro error
@@ -146,16 +141,16 @@ def check_time_in_range(codigo_bib):
     return False
    
 
-logging.info('Inicio de programa')
-
 bot = telebot.TeleBot("6679369644:AAHxfnQvlimJlF1ke7x_ewfFo7TuQwHI3Tc")
 user_id = '1849448005'
 
-log_file_path = '/home/admincamaras/CamarasBiblioteca/Compartida/Maestro/log_maestro.log'  
-logging.basicConfig(filename=log_file_path, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+  
+logging.basicConfig(filename='log_maestro.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.info('Inicio de programa')
 cont = 0
 
-estado_bib = {'ANT': ('Cerrado', 'camara_ant')}
+estado_bib = {'ANT': ('Abierto', 'camara_ant')}
+detector_estado = True
 t_inicio = time.time()
 
 while True:
@@ -163,12 +158,13 @@ while True:
     if t_comprobacion > 24 * 3600:
         break
     elif cont == 12:
+        cont = 0
         estado_servidor()
 
-    logging.info('Comprobacion')
+    logging.debug('Comprobacion')
     current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    logging.info(f'Estado Biblioteca (antes): {estado_bib}')
-    estado_bib = comprobar_estado(estado_bib, bot, user_id)
-    logging.info(f'Estado Biblioteca(despues): {estado_bib}')
+    logging.debug(f'Estado Biblioteca (antes): {estado_bib}')
+    estado_bib, detector_estado = comprobar_estado(estado_bib, detector_estado, bot, user_id)
+    logging.debug(f'Estado Biblioteca(despues): {estado_bib}')
     time.sleep(300)
     cont+=1
