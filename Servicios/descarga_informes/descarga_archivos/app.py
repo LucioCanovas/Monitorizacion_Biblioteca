@@ -103,6 +103,24 @@ def descargar_archivo(codigo_bib, nombre, intervalo):
 
     return send_from_directory(os.path.dirname(ruta_archivo), nombre, as_attachment=True, download_name=nombre)
 
+# Ruta para eliminar archivo
+@app.route('/eliminar_archivo/<codigo_bib>/<intervalo>/<nombre>', methods=['POST'])
+@login_required
+def eliminar_archivo(codigo_bib, intervalo, nombre):
+    rol = session.get('role')
+    if rol != 'admin':
+        # Manejar caso en que el usuario no tiene permisos de administrador
+        return 'Solo el administrador puede eliminar informes.'
+
+    ruta = f'/app/Compartida/{codigo_bib}/Informes/{intervalo}'
+    ruta_archivo = os.path.join(ruta, nombre)
+
+    if os.path.exists(ruta_archivo):
+        os.remove(ruta_archivo)    
+    else:
+        print(f"El archivo '{nombre}' no existe.")
+
+    return redirect(url_for('mostrar_archivos', codigo_bib=codigo_bib, intervalo=intervalo))
 
 @app.route('/horarios', methods=['GET', 'POST'])
 @login_required

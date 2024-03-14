@@ -39,14 +39,10 @@
                 <li>
                     <div style="display: inline-block;">
                         <a href="{{ url_for('descargar_archivo', codigo_bib=codigo_bib, intervalo=intervalo, nombre=archivo) }}" download="{{ archivo }}">{{ archivo }}</a>
-                        {% if rol %}
-                            {% if rol == 'admin' %}
-                            <form id="eliminar_form_{{ archivo }}" method="post" action="{{ url_for('eliminar_archivo', codigo_bib=codigo_bib, intervalo=intervalo, nombre=archivo) }}" style="display: inline-block;">
-                                <!-- Agrega un botón de eliminar y un evento onclick para mostrar un mensaje de confirmación -->
-                                <button type="button" onclick="confirmarEliminacion('{{ archivo }}')">Eliminar</button>
-                            </form>
-                            {% endif %}
-                        {% endif %}
+                        <form id="eliminar_form_{{ archivo }}" method="post" action="{{ url_for('eliminar_archivo', codigo_bib=codigo_bib, intervalo=intervalo, nombre=archivo) }}" style="display: inline-block;">
+                            <!-- Agrega un botón de eliminar y un evento onclick para mostrar un mensaje de confirmación -->
+                            <button type="button" onclick="confirmarEliminacion('{{ archivo }}')">Eliminar</button>
+                        </form>
                     </div>
                 </li>
             {% endfor %}
