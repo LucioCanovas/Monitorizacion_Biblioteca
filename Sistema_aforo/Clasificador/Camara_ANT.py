@@ -38,7 +38,7 @@ def limite_de_tiempo(codigo_bib):
 
         if resultado:
             # Si la fecha de ayer existe, devolver las horas de inicio y fin
-            hora_fin = resultado
+            hora_fin = resultado[0]
         else:
             # Si la fecha de ayer no existe, seleccionar una fecha base según el día de la semana
             fecha_entrada_base = '2000-01-01' if datetime.strptime(fecha_actual, '%Y-%m-%d').weekday() < 5 else '1999-01-01'
@@ -54,7 +54,7 @@ def limite_de_tiempo(codigo_bib):
 
             if resultado:
                 # Si se encuentra en la fecha base, devolver las horas de inicio y fin
-                hora_fin = resultado
+                hora_fin = resultado[0]
             else:
                 # Si no hay información para la fecha base, asignar valores predeterminados
                 hora_fin = '21:30:00'
@@ -242,7 +242,7 @@ def enviar_mensaje_cola(secuencia):
     try:
         hora_actual = datetime.now()
         mensaje = f'{int(os.getenv("Id_bib"))},{secuencia},{hora_actual.hour}:{hora_actual.minute}:{hora_actual.second}'
-        logging.info(f'Mensaje enviado: {mensaje}')
+        logging.debug(f'Mensaje enviado: {mensaje}')
         
         channel.basic_publish(exchange='',
                               routing_key='BibliotecaUPCT',
@@ -282,8 +282,16 @@ kernel_erosion = np.ones((3, 3), np.uint8)
 kernel_dilatacion = np.ones((11, 11), np.uint8)
 
 # Archivo logging
-log_file_path = os.getenv("path_logging")   
-logging.basicConfig(filename=log_file_path, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+log_file_path = os.getenv("path_logging")
+
+fecha_hoy = datetime.now().date()
+
+# Convertir la fecha a formato YYYY-MM-DD
+fecha_formateada = fecha_hoy.strftime('%Y-%m-%d')
+
+ruta = f'{log_file_path}/log_camara_ant_{fecha_formateada}.log'
+
+logging.basicConfig(filename=ruta, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logging.getLogger('pika').setLevel(logging.CRITICAL)
 
 with cProfile.Profile() as profile:
@@ -356,5 +364,5 @@ with cProfile.Profile() as profile:
     results.sort_stats(pstats.SortKey.TIME)
     logging.info('********** Stats de la cámara ANT **********')
     logging.info(f'{results.print_stats()}')
-    results.dump_stats("profile_camara_ant.prof")
+    results.dump_stats(f"profile_camara_ant_{fecha_formateada}.prof")
 
