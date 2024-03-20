@@ -5,6 +5,7 @@ import glob
 import time
 import math
 import torch
+import zipfile
 import cProfile
 import pstats
 import shutil
@@ -26,7 +27,7 @@ def descifrar_mensaje(body):
     biblioteca_id = int(mensaje.split(",")[0])
     secuencia_id = int(mensaje.split(",")[1])
     hora_inicio = str(mensaje.split(",")[2])
-    logging.info(f'Mensaje recibido y descifrado: {biblioteca_id}, {secuencia_id}, {hora_inicio}')
+    logging.debug(f'Mensaje recibido y descifrado: {biblioteca_id}, {secuencia_id}, {hora_inicio}')
  
     return biblioteca_id, secuencia_id, hora_inicio
 
@@ -192,19 +193,47 @@ def almacenar_con_probabilidad(patron, directorio_destino, directorio_origen):
     probabilidad = random.uniform(0, 1)
 
     # Verificar si se cumple la probabilidad del 5%
-    if probabilidad < 0:
+    if probabilidad < os.getenv('probabilidad'):
         # Almacenar imágenes con patrones dados desde el directorio de origen al de destino
         archivos_coincidentes = glob.glob(os.path.join(directorio_origen, patron))
         for archivo in archivos_coincidentes:
             nombre_archivo = os.path.basename(archivo)
             shutil.copy(archivo, os.path.join(directorio_destino, nombre_archivo))
-    
+        return True
+    return False
+
+
+def comprimir_imagenes_en_ruta(ruta, codigo_bib):
+    # Obtener la fecha de hoy
+    fecha_hoy = datetime.now().date()
+    fecha_formateada = fecha_hoy.strftime('%Y-%m-%d')
+
+    # Nombre del archivo ZIP basado en la fecha de hoy
+    nombre_archivo_zip = f"{codigo_bib}_{fecha_formateada}.zip"
+    ruta_zip = os.path.join(ruta, nombre_archivo_zip)
+
+    # Comprobar si hay archivos .jpg en la ruta
+    imagenes = [archivo for archivo in os.listdir(ruta) if archivo.lower().endswith('.jpg')]
+
+    if imagenes:
+        # Crear un objeto ZipFile en modo escritura
+        with zipfile.ZipFile(ruta_zip, 'w') as archivo_zip:
+            # Comprimir cada imagen en el archivo zip
+            for imagen in imagenes:
+                archivo_completo = os.path.join(ruta, imagen)
+                archivo_zip.write(archivo_completo, imagen)
+        
+        logging.info(f"Se han comprimido las imágenes en '{ruta}' en '{nombre_archivo_zip}'")
+    else:
+        logging.error(f"No se encontraron imágenes en '{ruta}'")
+
 
 def procesar_secuencia(codigo_bib, secuencia_id, biblioteca_id):
-    global array_aforo
+    global array_aforo, diccionario_secuencias
 
     path_imagen = f'/app/Compartida/{codigo_bib}/Imagenes/'
-    #path_imagen_test = f'/app/Compartida/{codigo_bib}/test/'
+    path_imagen_test = f'/app/Compartida/{codigo_bib}/test/'
+    
 
     secuencia = 'sc%05d' %secuencia_id
     longitud = len([file for file in os.listdir(path_imagen) if secuencia in file]) 
@@ -244,7 +273,13 @@ def procesar_secuencia(codigo_bib, secuencia_id, biblioteca_id):
     
     array_aforo[biblioteca_id] += (contador_in - contador_out)
     patron = 'sc%05d_*.jpg' %secuencia_id
-    #almacenar_con_probabilidad(patron, path_imagen_test, path_imagen)
+    contador_secuencias = diccionario_secuencias[codigo_bib]
+    
+    if (grado_3 + grado_4)/longitud > os.getenv("porcentaje") and contador_secuencias < 100:
+        guardar_secuencia = almacenar_con_probabilidad(patron, path_imagen_test, path_imagen)
+        if guardar_secuencia: contador_secuencias += 1
+    diccionario_secuencias[codigo_bib] = contador_secuencias
+
     eliminar_imagenes(path_imagen, patron)
     
     return array_aforo, contador_in, contador_out, grado_0, grado_1, grado_2, grado_3, grado_4
@@ -381,9 +416,16 @@ ip_broker = os.getenv("Ip_broker")
 final = False
 modelo_deteccion = torch.hub.load('ultralytics/yolov5','custom',path='/app/Compartida/Detector/modelo_v5.pt')
 
-# Configuración del registro para escribir en un archivo
-log_file_path = os.getenv("path_logging")   
-logging.basicConfig(filename=log_file_path, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Archivo logging
+log_file_path = os.getenv("path_logging")
+
+fecha_hoy = datetime.now().date()
+
+# Convertir la fecha a formato YYYY-MM-DD
+fecha_formateada = fecha_hoy.strftime('%Y-%m-%d')
+
+ruta = f'{log_file_path}/log_detector_{fecha_formateada}.log'   
+logging.basicConfig(filename=ruta, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logging.getLogger('pika').setLevel(logging.CRITICAL)
 logging.info(f'----------   Detector iniciado   ----------')
 
@@ -391,6 +433,8 @@ logging.info(f'----------   Detector iniciado   ----------')
 diccionario_biblioteca = {0: 'ANT', 1: 'CIM', 2: 'ALF'}
 array_secuencias, array_aforo = obtener_aforo_secuencias()
 logging.debug(f'Secuencias: {array_secuencias}')
+
+diccionario_secuencias = {'ANT': 0, 'CIM': 0, 'ALF': 0}
 
 with cProfile.Profile() as profile:
 
@@ -402,10 +446,17 @@ with cProfile.Profile() as profile:
     # Start consuming messages
     consume_messages()
 
+#Comprimir las imagenes para Transfer learning
+for clave, valor in diccionario_biblioteca.items():
+    codigo_bib = valor
+    ruta_secuencias = f'/app/Compartida/{codigo_bib}/test/'
+    comprimir_imagenes_en_ruta(ruta_secuencias, codigo_bib)
+    eliminar_imagenes(ruta_secuencias, patron='*.jpg')
+
 results = pstats.Stats(profile)
 results.sort_stats(pstats.SortKey.TIME)
 logging.info('********** Stats del detector **********')
 logging.info(f'{results.print_stats()}')
-results.dump_stats("profile_detector.prof")
+results.dump_stats(f"profile_detector_{fecha_formateada}.prof")
 
     
