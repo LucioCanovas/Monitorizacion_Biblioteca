@@ -9,6 +9,7 @@ COPY . /app
 
 # Instala los requisitos desde el archivo requirements.txt
 RUN pip install docker
+RUN pip install psutil
 RUN pip install pyTelegramBotAPI
 RUN pip install schedule
 
