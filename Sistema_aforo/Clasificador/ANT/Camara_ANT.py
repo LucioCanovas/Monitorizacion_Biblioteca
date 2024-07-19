@@ -22,7 +22,7 @@ def cierre_biblioteca(codigo_bib):
         connection = mysql.connector.connect(
             host="BaseDatos_bibliotecas",
             user="root",
-            password="BBDD_sistema_conteo$",
+            password="",
             database="base_datos_bibliotecas"
         )
         cursor = connection.cursor()
@@ -103,7 +103,7 @@ def obtener_ultima_secuencia(codigo_bib):
         connection = mysql.connector.connect(
             host="BaseDatos_bibliotecas",
             user="root",
-            password="BBDD_sistema_conteo$",
+            password="",
             database="base_datos_bibliotecas"
         )
         cursor = connection.cursor()
@@ -141,7 +141,7 @@ def estado_camara_basedatos(codigo_bib, estado):
         connection = mysql.connector.connect(
             host="BaseDatos_bibliotecas",
             user="root",
-            password="BBDD_sistema_conteo$",
+            password="",
             database="base_datos_bibliotecas"
         )
         cursor = connection.cursor()
@@ -299,7 +299,7 @@ def añadir_tiempo_camara_activa(codigo_bib, tiempo):
         connection = mysql.connector.connect(
             host="BaseDatos_bibliotecas",
             user="root",
-            password="BBDD_sistema_conteo$",
+            password="",
             database="base_datos_bibliotecas"
         )
         cursor = connection.cursor()

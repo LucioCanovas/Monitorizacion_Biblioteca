@@ -33,7 +33,7 @@ def obtener_resumen(codigo_bib, fecha, hora_inicio_str, hora_final_str):
         connection = mysql.connector.connect(
             host="BaseDatos_bibliotecas",
             user="root",
-            password="BBDD_sistema_conteo$",
+            password="",
             database="base_datos_bibliotecas"
         )
         cursor = connection.cursor()
@@ -71,7 +71,7 @@ def obtener_horas_biblioteca(codigo_bib, fecha):
         connection = mysql.connector.connect(
             host="BaseDatos_bibliotecas",
             user="root",
-            password="BBDD_sistema_conteo$",
+            password="",
             database="base_datos_bibliotecas"
         )
 

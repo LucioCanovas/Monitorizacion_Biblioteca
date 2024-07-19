@@ -50,7 +50,7 @@ def obtener_aforo():
                 connection = mysql.connector.connect(
                     host="BaseDatos_bibliotecas",
                     user="root",
-                    password="BBDD_sistema_conteo$",
+                    password="",
                     database="base_datos_bibliotecas"
                 )
                 cursor = connection.cursor()

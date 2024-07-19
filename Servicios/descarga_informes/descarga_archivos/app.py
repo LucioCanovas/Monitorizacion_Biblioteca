@@ -177,7 +177,7 @@ def crear_tabla():
     connection = mysql.connector.connect(
             host="BaseDatos_bibliotecas",
             user="root",
-            password="BBDD_sistema_conteo$",
+            password="",
             database="base_datos_bibliotecas"
         )
 
@@ -285,7 +285,7 @@ def mostrar_horarios(codigo_bib):
             connection = mysql.connector.connect(
                 host="BaseDatos_bibliotecas",
                 user="root",
-                password="BBDD_sistema_conteo$",
+                password="",
                 database="base_datos_bibliotecas"
             )
 
@@ -377,7 +377,7 @@ def agregar_horario(codigo_bib):
             connection = mysql.connector.connect(
                 host="BaseDatos_bibliotecas",
                 user="root",
-                password="BBDD_sistema_conteo$",
+                password="",
                 database="base_datos_bibliotecas"
             )
             cursor = connection.cursor()

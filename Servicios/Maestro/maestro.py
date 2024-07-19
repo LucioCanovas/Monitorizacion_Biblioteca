@@ -17,7 +17,7 @@ def estado_servidor():
         connection = mysql.connector.connect(
             host="BaseDatos_bibliotecas",
             user="root",
-            password="BBDD_sistema_conteo$",
+            password="",
             database="base_datos_bibliotecas"
         )
         cursor = connection.cursor()
@@ -105,7 +105,7 @@ def check_time_in_range(codigo_bib):
         connection = mysql.connector.connect(
             host="BaseDatos_bibliotecas",
             user="root",
-            password="BBDD_sistema_conteo$",
+            password="",
             database="base_datos_bibliotecas"
         )
         cursor = connection.cursor()
@@ -195,8 +195,8 @@ def check_time_in_range(codigo_bib):
     return hora_inicio < hora_actual < hora_fin
 
       
-bot = telebot.TeleBot("6679369644:AAHxfnQvlimJlF1ke7x_ewfFo7TuQwHI3Tc")
-user_id = '1849448005'
+bot = telebot.TeleBot("")
+user_id = ''
 
 ruta = f'/app/Compartida/logs/maestro/log_maestro.log'
 

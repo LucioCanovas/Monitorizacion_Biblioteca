@@ -232,7 +232,7 @@ def obtener_arrayAforo_arraySecuencias(diccionario_biblioteca):
             connection = mysql.connector.connect(
                 host="BaseDatos_bibliotecas",
                 user="root",
-                password="BBDD_sistema_conteo$",
+                password="",
                 database="base_datos_bibliotecas"
             )
             cursor = connection.cursor()
@@ -367,7 +367,7 @@ def insertar_secuencia(codigo_bib, biblioteca_id, secuencia_id, timestamp_inicio
         connection = mysql.connector.connect(
                 host="BaseDatos_bibliotecas",
                 user="root",
-                password="BBDD_sistema_conteo$",
+                password="",
                 database="base_datos_bibliotecas"
         )
         cursor = connection.cursor()
