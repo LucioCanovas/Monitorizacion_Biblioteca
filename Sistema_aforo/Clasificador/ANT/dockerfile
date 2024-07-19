@@ -1,6 +1,14 @@
 # Usa una imagen de Python 3.11
 FROM python:3.11
 
+# Instala las dependencias necesarias para OpenCV y OpenGL
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxrender1 \
+    libxext6
+
 # Establece el directorio de trabajo en /app
 WORKDIR /app
 
@@ -11,23 +19,25 @@ COPY . /app
 # a /app/Compartida en el contenedor
 VOLUME /home/admincamaras/CamarasBiblioteca/Compartida:/app/Compartida
 
-# Limita la CPU a 0.15 (15% de una CPU)
+# Limita la CPU a 0.5 (50% de una CPU)
 # Si tienes más de una CPU disponible en tu sistema, esto limitará el contenedor a usar la mitad de un núcleo.
-# Si tienes 4 CPUs, 0.5 significa 15% de un núcleo.
-ENV CPU_LIMIT 0.15
+# Si tienes 4 CPUs, 0.5 significa 50% de un núcleo.
+ENV CPU_LIMIT 0.5
 
 # Instala los requisitos desde el archivo requirements.txt
+RUN pip install opencv-contrib-python
+RUN pip install pika
+RUN pip install ping3
+RUN pip install pyTelegramBotAPI
 RUN pip install python-dotenv
-RUN pip install Flask
-RUN pip install bcrypt==3.2.0
-RUN pip install passlib
+RUN pip install numpy
 RUN pip install mysql-connector-python
 
 # Nombre del contenedor
-LABEL name="descarga_archivos"
+LABEL name="Camara_ANT"
 
-# Indica que el contenedor escucha en el puerto
-EXPOSE 5000
+# Indica que el contenedor escucha en el puerto RTSP
+EXPOSE 554
 
 # Comando de inicio
-CMD ["python", "app.py"]
+CMD ["python", "Camara_ANT.py"]

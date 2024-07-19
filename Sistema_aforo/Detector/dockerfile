@@ -33,6 +33,7 @@ RUN pip install pika
 RUN pip install torch
 RUN pip install numpy
 RUN pip install pandas
+RUN pip install mysql-connector-python
 
 # Nombre del contenedor
 LABEL name="detector"

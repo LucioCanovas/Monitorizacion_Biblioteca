@@ -1,6 +1,7 @@
 import os
-import sqlite3
-from datetime import datetime
+import mysql.connector
+import logging
+from datetime import datetime, timedelta
 from math import ceil
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, session
@@ -17,9 +18,11 @@ hashed_user_password = os.getenv('password')
 hashed_admin = os.getenv('admin')
 hashed_admin_password = os.getenv('admin_password')
 
+
 @app.route('/')
 def index():
     return redirect(url_for('login'))
+
 
 def login_required(f):
     @wraps(f)
@@ -28,6 +31,7 @@ def login_required(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
+
 
 # Autenticación de usuario
 @app.route('/login', methods=['GET', 'POST'])
@@ -51,6 +55,7 @@ def login():
             return render_template('login.html', mensaje_error=mensaje_error)
     return render_template('login.html')
 
+
 @app.route('/descargar', methods=['GET', 'POST'])
 @login_required
 def descargar():
@@ -61,6 +66,7 @@ def descargar():
         return redirect(url_for('mostrar_archivos', codigo_bib=codigo_bib, intervalo=intervalo))
 
     return render_template('archivos.html')
+
 
 @app.route('/descargar/<codigo_bib>/<intervalo>')
 @login_required
@@ -93,6 +99,7 @@ def mostrar_archivos(codigo_bib, intervalo):
     # Renderizar la plantilla HTML y pasar los datos necesarios
     return render_template('archivos.html', archivos=archivos_pagina, codigo_bib=codigo_bib, intervalo=intervalo, num_paginas=num_paginas, pagina_actual=pagina)
 
+
 @app.route('/descargar/<codigo_bib>/<intervalo>/<nombre>')
 @login_required
 def descargar_archivo(codigo_bib, nombre, intervalo):
@@ -102,6 +109,7 @@ def descargar_archivo(codigo_bib, nombre, intervalo):
     #print(f'Ruta archivo:{ruta_archivo}')
 
     return send_from_directory(os.path.dirname(ruta_archivo), nombre, as_attachment=True, download_name=nombre)
+
 
 # Ruta para eliminar archivo
 @app.route('/eliminar_archivo/<codigo_bib>/<intervalo>/<nombre>', methods=['POST'])
@@ -122,6 +130,7 @@ def eliminar_archivo(codigo_bib, intervalo, nombre):
 
     return redirect(url_for('mostrar_archivos', codigo_bib=codigo_bib, intervalo=intervalo))
 
+
 @app.route('/horarios', methods=['GET', 'POST'])
 @login_required
 def horarios():
@@ -133,6 +142,135 @@ def horarios():
 
     return render_template('horarios.html')
 
+def crear_BBDD():
+    try:
+        # Conexión a la base de datos
+        connection = mysql.connector.connect(
+                    host="BaseDatos_bibliotecas",
+                    user="root",
+                    password="BBDD_sistema_conteo$"
+                )
+
+        cursor = connection.cursor()
+
+        # Consulta para crear la base de datos
+        create_db_query = "CREATE DATABASE IF NOT EXISTS base_datos_bibliotecas"
+
+        # Ejecutar consulta
+        cursor.execute(create_db_query)
+
+        # Confirmar cambios
+        connection.commit()
+        print('BBDD creada con exito')
+        # Cerrar cursor y conexión
+        cursor.close()
+        connection.close()
+
+    except Exception as e:
+        print('Error al crear la base de datos')
+        print(e)
+        # Cerrar cursor y conexión
+        cursor.close()
+        connection.close()
+
+def crear_tabla():
+    connection = mysql.connector.connect(
+            host="BaseDatos_bibliotecas",
+            user="root",
+            password="BBDD_sistema_conteo$",
+            database="base_datos_bibliotecas"
+        )
+
+    # Crear cursor
+    cursor = connection.cursor()
+
+    # Consulta para crear la tabla
+    create_table_query = """
+    CREATE TABLE IF NOT EXISTS horarios_biblioteca (
+        fecha DATE NOT NULL,
+        codigo_bib VARCHAR(10) NOT NULL,
+        hora_inicio TIME NOT NULL,
+        hora_final TIME NOT NULL
+    )
+    """
+
+    # Ejecutar consulta
+    cursor.execute(create_table_query)
+
+    # Confirmar cambios
+    connection.commit()
+
+    create_table_query = """
+    CREATE TABLE IF NOT EXISTS estado_servidor (
+        timestamp DATETIME NOT NULL,
+        estado SMALLINT NOT NULL
+    )
+    """
+
+    # Ejecutar consulta
+    cursor.execute(create_table_query)
+
+    # Confirmar cambios
+    connection.commit()
+
+    create_table_query = """
+    CREATE TABLE IF NOT EXISTS estado_camara (
+        codigo_bib VARCHAR(30) NOT NULL,
+        timestamp DATETIME NOT NULL,
+        flag CHAR(3) NOT NULL,
+        estado SMALLINT NOT NULL
+    )
+    """
+
+    # Ejecutar consulta
+    cursor.execute(create_table_query)
+
+    # Confirmar cambios
+    connection.commit()
+
+    create_table_query = """
+    CREATE TABLE IF NOT EXISTS aforo_biblioteca (
+        codigo_bib CHAR(30) NOT NULL,
+        timestamp DATETIME NOT NULL,
+        fecha DATE NOT NULL,
+        secuencia SMALLINT NOT NULL,
+        hora TIME NOT NULL,
+        delay TIME NOT NULL,
+        personas_in SMALLINT NOT NULL,
+        personas_out SMALLINT NOT NULL,
+        aforo SMALLINT NOT NULL,
+        grado_0 SMALLINT NOT NULL,
+        grado_1 SMALLINT NOT NULL,
+        grado_2 SMALLINT NOT NULL,
+        grado_3 SMALLINT NOT NULL,
+        grado_4 SMALLINT NOT NULL
+    )
+    """
+
+    # Ejecutar consulta
+    cursor.execute(create_table_query)
+
+    # Confirmar cambios
+    connection.commit()
+
+    create_table_query = """
+    CREATE TABLE IF NOT EXISTS tiempo_camara_activa (
+        codigo_bib CHAR(30) NOT NULL,
+        tiempo CHAR(30) NOT NULL,
+        fecha DATE NOT NULL
+    )
+    """
+
+    # Ejecutar consulta
+    cursor.execute(create_table_query)
+
+    # Confirmar cambios
+    connection.commit()
+
+    # Cerrar cursor y conexión
+    cursor.close()
+    connection.close()
+
 @app.route('/horarios/<codigo_bib>', methods=['GET', 'POST'])
 @login_required
 def mostrar_horarios(codigo_bib):
@@ -140,20 +278,80 @@ def mostrar_horarios(codigo_bib):
         return 'Acceso denegado. Solo el administrador puede acceder a esta página.'
     if request.method == 'POST':
         codigo_bib_seleccionado = request.form['codigo_bib']
+
         # Obtener todas las fechas, hora de inicio y hora final asociadas al código_bib seleccionado
-        with sqlite3.connect('/app/Compartida/BBDD/BBDD.db') as connection:
+        try:
+            # Conexión a la base de datos
+            connection = mysql.connector.connect(
+                host="BaseDatos_bibliotecas",
+                user="root",
+                password="BBDD_sistema_conteo$",
+                database="base_datos_bibliotecas"
+            )
+
             cursor = connection.cursor()
+
             cursor.execute('''
                 SELECT fecha, hora_inicio, hora_final
-                FROM horarios
-                WHERE codigo_bib = ?
-                ORDER BY fecha
+                FROM horarios_biblioteca
+                WHERE codigo_bib = %s
+                ORDER BY fecha DESC
             ''', (codigo_bib_seleccionado,))
+
             horarios = cursor.fetchall()
 
-        return render_template('horarios.html', codigo_bib=codigo_bib, horarios=horarios)
+            cursor.close()
+            connection.close()
+
+        except Exception as e:
+            print(f'Error mostrar_horarios: {e}')
+            if connection.is_connected():
+                # Cerrar la conexión a la base de datos
+                cursor.close()
+                connection.close()
+
+        finally:
+            if connection.is_connected():
+                # Cerrar la conexión a la base de datos
+                cursor.close()
+                connection.close() 
+
+        horarios_biblioteca = []   
+
+        for horario in horarios:
+
+            horario_bib = []
+            fecha = horario[0]
+            print(fecha)
+            fecha = datetime.strftime(fecha, '%Y-%m-%d')
+
+            hora_inicio = horario[1]
+            # Calcular las horas, minutos y segundos
+            horas = hora_inicio // timedelta(hours=1)
+            minutos = (hora_inicio - timedelta(hours=horas)) // timedelta(minutes=1)
+            segundos = (hora_inicio - timedelta(hours=horas, minutes=minutos)).seconds
+
+            # Formatear el tiempo como una cadena
+            cadena_tiempo_inicio = "{:02}:{:02}:{:02}".format(horas, minutos, segundos)
+
+            hora_final = horario[2]
+            # Calcular las horas, minutos y segundos
+            horas = hora_final // timedelta(hours=1)
+            minutos = (hora_final - timedelta(hours=horas)) // timedelta(minutes=1)
+            segundos = (hora_final - timedelta(hours=horas, minutes=minutos)).seconds
+
+            # Formatear el tiempo como una cadena
+            cadena_tiempo_final = "{:02}:{:02}:{:02}".format(horas, minutos, segundos)
+
+            horario_bib.append(fecha)
+            horario_bib.append(cadena_tiempo_inicio)
+            horario_bib.append(cadena_tiempo_final)  
+            horarios_biblioteca.append(horario_bib)
+
+        return render_template('horarios.html', codigo_bib=codigo_bib, horarios=horarios_biblioteca)
 
     return render_template('horarios.html')
+
 
 @app.route('/horarios/<codigo_bib>/agregar', methods=['POST'])
 @login_required
@@ -162,6 +360,7 @@ def agregar_horario(codigo_bib):
         return 'Acceso denegado. Solo el administrador puede acceder a esta página.'
     if request.method == 'POST':
         # Obtener la nueva información del formulario
+        codigo_bib = request.form['codigo_bib']
         opcion = request.form['opcion']
         fecha_nueva = request.form['fecha_nueva']
         hora_inicio_nueva = request.form['hora_inicio_nueva']
@@ -173,21 +372,50 @@ def agregar_horario(codigo_bib):
         hora_final_nueva = datetime.strptime(hora_final_nueva, '%H:%M').time().strftime('%H:%M:%S')
 
         # Guardar la nueva entrada en la base de datos
-        with sqlite3.connect('/app/Compartida/BBDD/BBDD.db') as connection:
+        try:
+            # Conexión a la base de datos
+            connection = mysql.connector.connect(
+                host="BaseDatos_bibliotecas",
+                user="root",
+                password="BBDD_sistema_conteo$",
+                database="base_datos_bibliotecas"
+            )
             cursor = connection.cursor()
+
             if opcion == "Añadir":
                 cursor.execute('''
-                    INSERT INTO horarios (codigo_bib, fecha, hora_inicio, hora_final)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO horarios_biblioteca (codigo_bib, fecha, hora_inicio, hora_final)
+                    VALUES (%s, %s, %s, %s)
                 ''', (codigo_bib, fecha_nueva, hora_inicio_nueva, hora_final_nueva))
-                connection.commit()
-            elif opcion == "Eliminar":
-                cursor.execute('''
-                    DELETE FROM horarios
-                    WHERE codigo_bib = ? AND fecha = ?
-                    ''', (codigo_bib, fecha_nueva))
+
                 connection.commit()
 
+            elif opcion == "Eliminar":
+
+                cursor.execute('''
+                    DELETE FROM horarios_biblioteca
+                    WHERE codigo_bib = %s AND fecha = %s
+                    ''', (codigo_bib, fecha_nueva))
+                
+                connection.commit()
+
+            cursor.close()
+            connection.close()
+
+        except Exception as e:
+            logging.error(f'Error agregar_horarios: {e}')
+            if connection.is_connected():
+                # Cerrar la conexión a la base de datos
+                cursor.close()
+                connection.close()
+
+        finally:
+            if connection.is_connected():
+                # Cerrar la conexión a la base de datos
+                cursor.close()
+                connection.close()
+
+            
         # Redirigir de nuevo a la página de horarios
         return redirect(url_for('mostrar_horarios', codigo_bib=codigo_bib), code=307)
 
@@ -196,6 +424,10 @@ if __name__ == '__main__':
     # Ruta a tu certificado SSL y clave privada
     cert_file = '/app/Openssl/certificado_firmado.pem'
     key_file = '/app/Openssl/clave_privada.pem'
+    logging.basicConfig(filename='/app/Compartida/logs/log_web.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.info('Inicio web')
+    #crear_BBDD()
+    #crear_tabla()
 
     # Ejemplo de configuración para HTTPS
     app.run(debug=True, host='0.0.0.0', port=5000, ssl_context=(cert_file, key_file))

@@ -17,6 +17,8 @@ ENV CPU_LIMIT 0.2
 # Instala los requisitos desde el archivo requirements.txt
 RUN pip install python-dotenv
 RUN pip install pandas
+RUN pip install mysql-connector-python
+RUN pip install openpyxl
 
 # Nombre del contenedor
 LABEL name="informes"

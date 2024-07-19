@@ -17,8 +17,11 @@ VOLUME /home/admincamaras/CamarasBiblioteca/Compartida:/app/Compartida
 ENV CPU_LIMIT 0.10
 
 # Instala los requisitos desde el archivo requirements.txt
+RUN pip install flask-cors
 RUN pip install python-dotenv
 RUN pip install Flask
+RUN pip install flask_jwt_extended
+RUN pip install mysql-connector-python
 
 # Nombre del contenedor
 LABEL name="api_app"

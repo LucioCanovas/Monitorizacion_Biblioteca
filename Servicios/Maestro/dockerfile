@@ -12,6 +12,7 @@ RUN pip install docker
 RUN pip install psutil
 RUN pip install pyTelegramBotAPI
 RUN pip install schedule
+RUN pip install mysql-connector-python
 
 # Nombre del contenedor
 LABEL name="Maestro"
